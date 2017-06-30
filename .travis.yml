@@ -14,8 +14,8 @@ before_install:
 
 script:
   - cd frontend
-  - npm install
-  - ng build
+  - yarn install
+  - yarn run build
   - cd ..
   - cd server
   - go build
