@@ -133,6 +133,7 @@ func main() {
 
 	e := echo.New()
 	e.Use(middleware.Logger())
+	e.Static("/", "public")
 	e.GET("/api/animes", func(c echo.Context) error {
 		var anime []Anime
 		//db.Joins("LEFT JOIN episodes ON episodes.anime_id = animes.ID").Joins("LEFT JOIN torrents ON torrents.episode_id = episodes.ID").Limit(100).Order("ID desc").Find(&anime)
