@@ -19,6 +19,6 @@ script:
   - cd ..
   - cd server
   - go build
-#  - docker build -t keetraxx/nyaa .
-#  - docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
-#  - docker push keetraxx/nyaa
+  - docker build -t keetraxx/nyaago .
+  - docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+  - docker push keetraxx/nyaago
