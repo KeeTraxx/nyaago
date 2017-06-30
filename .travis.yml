@@ -1,0 +1,24 @@
+sudo: required
+
+language: go
+
+go:
+  - 1.8
+
+services:
+  - docker
+
+before_install:
+  - ~/.nvm/nvm.sh
+  - nvm install --lts
+
+script:
+  - cd frontend
+  - npm install
+  - ng build
+  - cd ..
+  - cd server
+  - go build
+#  - docker build -t keetraxx/nyaa .
+#  - docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+#  - docker push keetraxx/nyaa
