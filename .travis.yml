@@ -13,11 +13,10 @@ install:
   - yarn install
 
 script:
-  - cd frontend
   - yarn run build
   - cd ..
   - cd server
-  - docker run -v `pwd`:/app golang:1.8-alpine go-wrapper get -v ./... && go-wrapper build
+  - docker run -v `pwd`:/go/src/server -w /go/src/server golang:1.8-alpine go-wrapper get -v ./... && go build -v
   - cd ..
   - docker build -t keetraxx/nyaago .
   - docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
