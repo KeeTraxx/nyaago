@@ -1,9 +1,6 @@
 sudo: required
 
-language: go
-
-go:
-  - 1.8
+language: generic
 
 services:
   - docker
@@ -18,7 +15,7 @@ script:
   - yarn run build
   - cd ..
   - cd server
-  - go build
+  - docker run -v `pwd`:/app golang:1.8-alpine go-wrapper get -v ./... && go-wrapper build
   - cd ..
   - docker build -t keetraxx/nyaago .
   - docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
