@@ -1,22 +1,24 @@
 sudo: required
 
-language: node_js
+language: go
 
-node_js:
-  - "6"
+go:
+  - 1.8
 
 services:
   - docker
 
-install:
-  - cd frontend
-  - yarn install
+before_install:
+  - ~/.nvm/nvm.sh
+  - nvm install --lts
 
 script:
+- cd frontend
+  - yarn install
   - yarn run build
   - cd ..
   - cd server
-  - docker run -v `pwd`:/go/src/server -w /go/src/server golang:1.8-alpine apk add --update git && go get -v ./... && go build -v
+  - go build
   - cd ..
   - docker build -t keetraxx/nyaago .
   - docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"

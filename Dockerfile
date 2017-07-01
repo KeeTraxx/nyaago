@@ -1,4 +1,4 @@
-FROM alpine:3.6
+FROM debian:8
 
 COPY server/server /app/server
 COPY frontend/dist /app/public
