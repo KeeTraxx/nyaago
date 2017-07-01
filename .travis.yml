@@ -1,17 +1,19 @@
 sudo: required
 
-language: generic
+language: node_js
+
+node_js:
+  - "6"
 
 services:
   - docker
 
-before_install:
-  - ~/.nvm/nvm.sh
-  - nvm install --lts
+install:
+  - cd frontend
+  - yarn install
 
 script:
   - cd frontend
-  - yarn install
   - yarn run build
   - cd ..
   - cd server
