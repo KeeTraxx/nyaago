@@ -13,7 +13,7 @@ before_install:
   - nvm install --lts
 
 script:
-- cd frontend
+  - cd frontend
   - yarn install
   - yarn run build
   - cd ..
