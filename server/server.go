@@ -185,7 +185,7 @@ func UpdateThumbnail(a *Anime) {
 	q.Add("searchType", "image")
 	q.Add("imgSize", "large")
 	q.Add("key", os.Getenv("CH_COMPILE_NYAA_GOOGLE_KEY"))
-	q.Add("cx", "CH_COMPILE_NYAA_GOOGLE_CX")
+	q.Add("cx", os.Getenv("CH_COMPILE_NYAA_GOOGLE_CX"))
 
 	req.URL.RawQuery = q.Encode()
 
