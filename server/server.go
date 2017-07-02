@@ -335,7 +335,7 @@ func initTicker() {
 
 				fmt.Println(anime)
 				if db.NewRecord(anime) {
-					//UpdateThumbnail(&anime)
+					UpdateThumbnail(&anime)
 				}
 
 				subbingGroup := SubbingGroup{}
