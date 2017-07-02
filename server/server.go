@@ -308,7 +308,11 @@ func initTicker() {
 
 		for range ticker.C {
 			fp := gofeed.NewParser()
-			feed, _ := fp.ParseURL("https://nyaa.si/?page=rss&m=true&c=1_2&f=0&q=720p")
+			feed, err := fp.ParseURL("https://nyaa.si/?page=rss&m=true&c=1_2&f=0&q=720p")
+
+			if err != nil {
+				panic(err)
+			}
 
 			fmt.Println(feed.Title)
 
