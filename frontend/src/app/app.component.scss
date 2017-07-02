@@ -1,0 +1,20 @@
+.container {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+md-card {
+  width: 320px;
+  margin: 10px;
+}
+
+md-card .thumbnail {
+  width: 100px;
+  height: 60px;
+  background: no-repeat center center;
+  background-size: cover;
+}
+
+.mat-input-element {
+  color: white;
+}

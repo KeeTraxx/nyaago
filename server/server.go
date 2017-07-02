@@ -15,6 +15,8 @@ import (
 
 	"io/ioutil"
 
+	"os"
+
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"github.com/labstack/echo"
@@ -23,35 +25,37 @@ import (
 )
 
 type Anime struct {
-	ID           uint
-	Name         string `gorm:"index"`
-	Thumbnail    string
-	AutoDownload uint
-	Episodes     []Episode
+	ID                     uint           `json:"id"`
+	Name                   string         `gorm:"index" json:"name"`
+	Thumbnail              string         `json:"thumbnail"`
+	AutoDownloadResolution uint           `json:"auto_download_resolution"`
+	AutoDownloadGroupID    uint           `json:"auto_download_group_id"`
+	SubbingGroups          []SubbingGroup `json:"subbing_groups" gorm:"many2many:anime_subbing_groups;"`
+	Episodes               []Episode      `json:"episodes"`
 }
 
 type Episode struct {
-	ID       uint
-	AnimeID  uint
-	Number   uint `gorm:"index"`
-	Torrents []Torrent
+	ID       uint      `json:"id"`
+	AnimeID  uint      `json:"anime_id"`
+	Number   uint      `gorm:"index"`
+	Torrents []Torrent `json:"torrents"`
 }
 
 type Torrent struct {
-	ID             uint
-	EpisodeID      uint
-	SubbingGroupID uint
-	Link           string
-	Extension      string
-	PubDate        time.Time `gorm:"index"`
-	Resolution     uint
-	Title          string
-	Downloaded     bool `gorm:"index"`
+	ID             uint      `json:"id"`
+	EpisodeID      uint      `json:"episode_id"`
+	SubbingGroupID uint      `json:"subbing_group_id"`
+	Link           string    `json:"link"`
+	Extension      string    `json:"extension"`
+	PubDate        time.Time `gorm:"index" json:"pub_date"`
+	Resolution     uint      `json:"resolution"`
+	Title          string    `json:"title"`
+	Downloaded     bool      `gorm:"index" json:"downloaded"`
 }
 
 type SubbingGroup struct {
-	gorm.Model
-	Name string `gorm:"index"`
+	ID   uint   `json:"id"`
+	Name string `gorm:"index" json:"name"`
 }
 
 type GoogleSearchResult struct {
@@ -120,9 +124,14 @@ type GoogleSearchResult struct {
 
 var db *gorm.DB
 
+type AutoDownloadRequest struct {
+	Resolution     uint `json:"resolution"`
+	SubbingGroupID uint `json:"subbing_group_id"`
+}
+
 func main() {
 	var err error
-	db, err = gorm.Open("sqlite3", "nyaatorrentler.db")
+	db, err = gorm.Open("sqlite3", "data/nyaatorrentler.db")
 	if err != nil {
 		panic("Failed to connect to database...")
 	}
@@ -137,18 +146,22 @@ func main() {
 	e.GET("/api/animes", func(c echo.Context) error {
 		var anime []Anime
 		//db.Joins("LEFT JOIN episodes ON episodes.anime_id = animes.ID").Joins("LEFT JOIN torrents ON torrents.episode_id = episodes.ID").Limit(100).Order("ID desc").Find(&anime)
-		db.Preload("Episodes").Preload("Episodes.Torrents").Find(&anime)
+		db.Preload("Episodes").Preload("SubbingGroups").Preload("Episodes.Torrents").Find(&anime)
 		return c.JSON(http.StatusOK, anime)
 	})
 
 	e.POST("/api/animes/:id/toggle", func(c echo.Context) error {
 		id, _ := strconv.Atoi(c.Param("id"))
 		anime := Anime{ID: uint(id)}
+		var autoDownloadRequest AutoDownloadRequest
+		c.Bind(&autoDownloadRequest)
 		db.First(&anime)
-		if anime.AutoDownload == 0 {
-			anime.AutoDownload = 720
+		if anime.AutoDownloadResolution == 0 {
+			anime.AutoDownloadResolution = autoDownloadRequest.Resolution
+			anime.AutoDownloadGroupID = autoDownloadRequest.SubbingGroupID
 		} else {
-			anime.AutoDownload = 0
+			anime.AutoDownloadResolution = 0
+			anime.AutoDownloadGroupID = 0
 		}
 		db.Save(anime)
 		return c.JSON(http.StatusOK, &anime)
@@ -171,8 +184,8 @@ func UpdateThumbnail(a *Anime) {
 	q.Add("q", a.Name)
 	q.Add("searchType", "image")
 	q.Add("imgSize", "large")
-	q.Add("key", "AIzaSyDtqSXnU1EbIa2ARSaDHeLKgk09qNvpMyQ")
-	q.Add("cx", "017978448925266833740:ckloy0rjivq")
+	q.Add("key", os.Getenv("CH_COMPILE_NYAA_GOOGLE_KEY"))
+	q.Add("cx", "CH_COMPILE_NYAA_GOOGLE_CX")
 
 	req.URL.RawQuery = q.Encode()
 
@@ -189,12 +202,12 @@ func UpdateThumbnail(a *Anime) {
 
 func (a Anime) AfterUpdate(db *gorm.DB) {
 	fmt.Println("Afterupdate!")
-	if a.AutoDownload != 0 {
+	if a.AutoDownloadResolution != 0 {
 		var torrents []Torrent
 		db.
 			Joins("INNER JOIN episodes ON torrents.episode_id = episodes.ID").
 			Joins("INNER JOIN animes ON episodes.anime_id = animes.ID").
-			Where("animes.ID = ? AND torrents.Resolution = ? AND torrents.Downloaded = ?", a.ID, a.AutoDownload, false).
+			Where("animes.ID = ? AND torrents.Resolution = ? AND torrents.Downloaded = ?", a.ID, a.AutoDownloadResolution, false).
 			Find(&torrents)
 
 		for _, t := range torrents {
@@ -252,7 +265,7 @@ func download(t Torrent) {
 
 	fmt.Printf("data: %+v\n", string(login))
 
-	res, err := client.Post("http://rancher.compile.ch:8112/json", "application/json", bytes.NewReader(login))
+	res, err := client.Post(os.Getenv("CH_COMPILE_NYAA_DELUGE_URL")+"/json", "application/json", bytes.NewReader(login))
 
 	fmt.Println("err:", err)
 	body, _ := ioutil.ReadAll(res.Body)
@@ -282,14 +295,14 @@ func download(t Torrent) {
 
 	fmt.Printf("Sending to DELUGE: %+v", string(webAddTorrents))
 
-	res, err = client.Post("http://rancher.compile.ch:8112/json", "application/json", bytes.NewReader(webAddTorrents))
+	res, err = client.Post(os.Getenv("CH_COMPILE_NYAA_DELUGE_URL")+"/json", "application/json", bytes.NewReader(webAddTorrents))
 	fmt.Println("err:", err)
 	body, _ = ioutil.ReadAll(res.Body)
 	fmt.Printf("status: %d\nbody:%+v\n", res.StatusCode, string(body))
 }
 
 func initTicker() {
-	ticker := time.NewTicker(time.Minute * 10)
+	ticker := time.NewTicker(time.Second * 10)
 	go func() {
 		titleRe := regexp.MustCompile(`^\[(.+?)\]\s+([^\[\]]+?)\s*-\s+(\d+)\s+.*(720|1080|480).*\.(mp4|mkv)$`)
 
@@ -318,12 +331,15 @@ func initTicker() {
 
 				fmt.Println(anime)
 				if db.NewRecord(anime) {
-					UpdateThumbnail(&anime)
-					db.Save(&anime)
+					//UpdateThumbnail(&anime)
 				}
 
 				subbingGroup := SubbingGroup{}
 				db.FirstOrCreate(&subbingGroup, &SubbingGroup{Name: matches[1]})
+
+				anime.SubbingGroups = append(anime.SubbingGroups, subbingGroup)
+
+				db.Save(&anime)
 
 				episode := Episode{}
 				episodeNr, _ := strconv.Atoi(matches[3])
