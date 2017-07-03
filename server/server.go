@@ -37,7 +37,7 @@ type Anime struct {
 type Episode struct {
 	ID       uint      `json:"id"`
 	AnimeID  uint      `json:"anime_id"`
-	Number   uint      `gorm:"index"`
+	Number   uint      `gorm:"index" json:"number"`
 	Torrents []Torrent `json:"torrents"`
 }
 
