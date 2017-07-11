@@ -7,7 +7,7 @@
     <md-card>
       <md-card-title-group>
         <md-card-title (click)="showDetails(show)">{{show.name}} {{show.episodes[0].number}}</md-card-title>
-        <md-card-subtitle>{{show.episodes[0].torrents[0].pubDate | timeago}}</md-card-subtitle>
+        <md-card-subtitle>{{show.episodes[0].torrents[0].pub_date | timeago}}</md-card-subtitle>
         <div class="thumbnail" [style.backgroundImage]="'url('+show.thumbnail+')'"></div>
       </md-card-title-group>
       <md-card-actions>
