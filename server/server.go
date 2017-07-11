@@ -154,6 +154,7 @@ func main() {
 			}).
 			Joins("INNER JOIN episodes ON episodes.anime_id = animes.ID").
 			Joins("INNER JOIN torrents ON torrents.episode_id = episodes.ID").
+			Group("animes.ID").
 			Order("pub_date DESC").
 			Limit(100).
 			Find(&anime)
