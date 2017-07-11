@@ -364,8 +364,9 @@ func initTicker() {
 				torrent.Title = element.Title
 				torrent.SubbingGroupID = subbingGroup.ID
 
-				db.Save(&torrent)
-
+				if db.NewRecord(&torrent) {
+					db.Save(&torrent)
+				}
 			}
 
 		}
