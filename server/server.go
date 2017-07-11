@@ -26,7 +26,7 @@ import (
 
 type Anime struct {
 	ID                     uint           `json:"id"`
-	Name                   string         `gorm:"index" json:"name"`
+	Name                   string         `sql:"index" json:"name"`
 	Thumbnail              string         `json:"thumbnail"`
 	AutoDownloadResolution uint           `json:"auto_download_resolution"`
 	AutoDownloadGroupID    uint           `json:"auto_download_group_id"`
@@ -37,7 +37,7 @@ type Anime struct {
 type Episode struct {
 	ID       uint      `json:"id"`
 	AnimeID  uint      `json:"anime_id"`
-	Number   uint      `gorm:"index" json:"number"`
+	Number   uint      `sql:"index" json:"number"`
 	Torrents []Torrent `json:"torrents"`
 }
 
@@ -47,15 +47,15 @@ type Torrent struct {
 	SubbingGroupID uint      `json:"subbing_group_id"`
 	Link           string    `json:"link"`
 	Extension      string    `json:"extension"`
-	PubDate        time.Time `gorm:"index" json:"pub_date"`
+	PubDate        time.Time `sql:"index" json:"pub_date"`
 	Resolution     uint      `json:"resolution"`
 	Title          string    `json:"title"`
-	Downloaded     bool      `gorm:"index" json:"downloaded"`
+	Downloaded     bool      `sql:"index" json:"downloaded"`
 }
 
 type SubbingGroup struct {
 	ID   uint   `json:"id"`
-	Name string `gorm:"index" json:"name"`
+	Name string `sql:"index" json:"name"`
 }
 
 type GoogleSearchResult struct {
@@ -150,9 +150,17 @@ func main() {
 			Preload("Episodes").
 			Preload("SubbingGroups").
 			Preload("Episodes.Torrents", func(db *gorm.DB) *gorm.DB {
-				return db.Order("torrents.pubDate DESC")
+				return db.Order("torrents.pub_date DESC")
 			}).
+			Joins("INNER JOIN episodes ON episodes.anime_id = animes.ID").
+			Joins("INNER JOIN torrents ON torrents.episode_id = episodes.ID").
+			Order("pub_date DESC").
+			Limit(100).
 			Find(&anime)
+
+		if db.Error != nil {
+			fmt.Println(err)
+		}
 		return c.JSON(http.StatusOK, anime)
 	})
 
@@ -184,6 +192,14 @@ func main() {
 }
 
 func UpdateThumbnail(a *Anime) {
+	if len(os.Getenv("CH_COMPILE_NYAA_GOOGLE_KEY")) == 0 {
+		return
+	}
+
+	if len(os.Getenv("CH_COMPILE_NYAA_GOOGLE_CX")) == 0 {
+		return
+	}
+
 	client := http.Client{}
 	req, _ := http.NewRequest("GET", "https://www.googleapis.com/customsearch/v1", nil)
 	q := req.URL.Query()
@@ -308,73 +324,78 @@ func download(t Torrent) {
 }
 
 func initTicker() {
-	ticker := time.NewTicker(time.Second * 10)
+	ticker := time.NewTicker(time.Minute * 10)
 	go func() {
-		titleRe := regexp.MustCompile(`^\[(.+?)\]\s+([^\[\]]+?)\s*-\s+(\d+)\s+.*(720|1080|480).*\.(mp4|mkv)$`)
-
 		for range ticker.C {
-			fp := gofeed.NewParser()
-			feed, err := fp.ParseURL("https://nyaa.si/?page=rss&m=true&c=1_2&f=0&q=720p")
-
-			if err != nil {
-				panic(err)
-			}
-
-			fmt.Println(feed.Title)
-
-			for _, element := range feed.Items {
-				matches := titleRe.FindStringSubmatch(element.Title)
-				fmt.Println(matches)
-				if len(matches) == 0 {
-					continue
-				}
-				// 0: full
-				// 1: group
-				// 2: Anime
-				// 3: Episode Number
-				// 4: Resolution
-				// 5: Extension
-				var anime Anime
-				fmt.Println(matches[2])
-				//db.Where(&Anime{Name: matches[2]}).FirstOrCreate(&anime)
-				db.FirstOrInit(&anime, &Anime{Name: matches[2]})
-
-				fmt.Println(anime)
-				if db.NewRecord(anime) {
-					UpdateThumbnail(&anime)
-				}
-
-				subbingGroup := SubbingGroup{}
-				db.FirstOrCreate(&subbingGroup, &SubbingGroup{Name: matches[1]})
-
-				anime.SubbingGroups = append(anime.SubbingGroups, subbingGroup)
-
-				db.Save(&anime)
-
-				episode := Episode{}
-				episodeNr, _ := strconv.Atoi(matches[3])
-				db.FirstOrCreate(&episode, &Episode{Number: uint(episodeNr), AnimeID: anime.ID})
-
-				resolution, _ := strconv.Atoi(matches[4])
-
-				torrent := Torrent{}
-				db.FirstOrInit(&torrent, &Torrent{
-					Title: element.Title,
-				})
-
-				torrent.EpisodeID = episode.ID
-				torrent.Extension = matches[5]
-				torrent.Link = element.Link
-				torrent.PubDate = *element.PublishedParsed
-				torrent.Resolution = uint(resolution)
-				torrent.Title = element.Title
-				torrent.SubbingGroupID = subbingGroup.ID
-
-				if db.NewRecord(&torrent) {
-					db.Save(&torrent)
-				}
-			}
-
+			updateNyaa()
 		}
 	}()
+
+	updateNyaa()
+}
+
+func updateNyaa() {
+	titleRe := regexp.MustCompile(`^\[(.+?)\]\s+([^\[\]]+?)\s*-\s+(\d+)\s+.*(720|1080|480).*\.(mp4|mkv)$`)
+	fp := gofeed.NewParser()
+	feed, err := fp.ParseURL("https://nyaa.si/?page=rss&m=true&c=1_2&f=0&q=720p")
+
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(feed.Title)
+
+	for _, element := range feed.Items {
+		matches := titleRe.FindStringSubmatch(element.Title)
+		fmt.Println(matches)
+		if len(matches) == 0 {
+			continue
+		}
+		// 0: full
+		// 1: group
+		// 2: Anime
+		// 3: Episode Number
+		// 4: Resolution
+		// 5: Extension
+		var anime Anime
+		fmt.Println(matches[2])
+		//db.Where(&Anime{Name: matches[2]}).FirstOrCreate(&anime)
+		db.FirstOrInit(&anime, &Anime{Name: matches[2]})
+
+		fmt.Println(anime)
+		if db.NewRecord(anime) {
+			UpdateThumbnail(&anime)
+		}
+
+		subbingGroup := SubbingGroup{}
+		db.FirstOrCreate(&subbingGroup, &SubbingGroup{Name: matches[1]})
+
+		anime.SubbingGroups = append(anime.SubbingGroups, subbingGroup)
+
+		db.Save(&anime)
+
+		episode := Episode{}
+		episodeNr, _ := strconv.Atoi(matches[3])
+		db.FirstOrCreate(&episode, &Episode{Number: uint(episodeNr), AnimeID: anime.ID})
+
+		resolution, _ := strconv.Atoi(matches[4])
+
+		torrent := Torrent{}
+		db.FirstOrInit(&torrent, &Torrent{
+			Title: element.Title,
+		})
+
+		torrent.EpisodeID = episode.ID
+		torrent.Extension = matches[5]
+		torrent.Link = element.Link
+		torrent.PubDate = *element.PublishedParsed
+		torrent.Resolution = uint(resolution)
+		torrent.Title = element.Title
+		torrent.SubbingGroupID = subbingGroup.ID
+
+		if db.NewRecord(&torrent) {
+			fmt.Printf("saving... %+v\n", torrent)
+			db.Save(&torrent)
+		}
+	}
 }
