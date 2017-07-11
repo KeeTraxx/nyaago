@@ -207,7 +207,7 @@ func (a Anime) AfterUpdate(db *gorm.DB) {
 		db.
 			Joins("INNER JOIN episodes ON torrents.episode_id = episodes.ID").
 			Joins("INNER JOIN animes ON episodes.anime_id = animes.ID").
-			Where("animes.ID = ? AND torrents.Resolution = ? AND torrents.Downloaded = ?", a.ID, a.AutoDownloadResolution, false).
+			Where("animes.ID = ? AND torrents.Resolution = ? AND torrents.Downloaded = ? AND torrents.SubbingGroupID = ?", a.ID, a.AutoDownloadResolution, false, a.AutoDownloadGroupID).
 			Find(&torrents)
 
 		for _, t := range torrents {
