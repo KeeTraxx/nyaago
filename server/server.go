@@ -324,6 +324,11 @@ func download(t Torrent) {
 	fmt.Println("err:", err)
 	body, _ = ioutil.ReadAll(res.Body)
 	fmt.Printf("status: %d\nbody:%+v\n", res.StatusCode, string(body))
+
+	t.Downloaded = true
+
+	db.Save(t)
+
 }
 
 func initTicker() {
