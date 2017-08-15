@@ -187,7 +187,7 @@ func main() {
 	e.POST("/api/torrent/:id/download", func(c echo.Context) error {
 		var torrent Torrent
 		db.First(&torrent, c.Param("id"))
-		download(torrent)
+		download(torrent, db)
 		return c.JSON(http.StatusOK, torrent)
 	})
 
@@ -237,7 +237,7 @@ func (a Anime) AfterUpdate(db *gorm.DB) {
 
 		for _, t := range torrents {
 			fmt.Printf("Downloading %+v", t)
-			download(t)
+			download(t, db)
 		}
 	}
 }
@@ -276,7 +276,7 @@ type DelugeTorrentOptions struct {
 	PrioritizeFirstLastPieces bool     `json:"prioritize_first_last_pieces"`
 }
 
-func download(t Torrent) {
+func download(t Torrent, db *gorm.DB) {
 	jar, _ := cookiejar.New(nil)
 	client := &http.Client{
 		Jar: jar,
